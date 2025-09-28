@@ -1,3 +1,4 @@
+// 🔥 FLYNET — Готовый скрипт без ошибок
 // Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyDkyiRV4s1mx-u0vXTFugt1VD_Ki7Sl7Sw",
@@ -5,34 +6,33 @@ const firebaseConfig = {
   projectId: "chat-29c7e",
   storageBucket: "chat-29c7e.firebasestorage.app",
   messagingSenderId: "191406446013",
-  appId: "1:191406446013:web:a964c205dc0d2883ff6ed4",
+  appId: "1:191406446013:web:a964c205dc0d2883ff6ed4"
 };
 
-// Initialize Firebase
+// Initialize Firebase (Compat)
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+const provider = new firebase.auth.GoogleAuthProvider();
 
+// State
 let currentUser = null;
 let currentChatId = null;
 let unsubscribeMessages = null;
 let allUsers = [];
 
-// DOM
-let authScreen, chatScreen, sidebar, messagesDiv, emojiPanel, settingsPanel, chatList, chatTitle;
+// DOM Elements
+const authScreen = document.getElementById('auth');
+const chatScreen = document.getElementById('chat');
+const sidebar = document.getElementById('sidebar');
+const messagesDiv = document.getElementById('messages');
+const emojiPanel = document.getElementById('emojiPanel');
+const settingsPanel = document.getElementById('settingsPanel');
+const chatList = document.getElementById('chatList');
+const chatTitle = document.getElementById('chatTitle');
+const messageInput = document.getElementById('messageInput');
 
-function initDOM() {
-  authScreen = document.getElementById('auth');
-  chatScreen = document.getElementById('chat');
-  sidebar = document.getElementById('sidebar');
-  messagesDiv = document.getElementById('messages');
-  emojiPanel = document.getElementById('emojiPanel');
-  settingsPanel = document.getElementById('settingsPanel');
-  chatList = document.getElementById('chatList');
-  chatTitle = document.getElementById('chatTitle');
-}
-
-// Auth state
+// Auth Observer
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUser = user;
@@ -48,33 +48,39 @@ auth.onAuthStateChanged(async (user) => {
   }
 });
 
+// Ensure user exists in Firestore
 async function ensureUserInDB(user) {
   const userRef = db.collection('users').doc(user.uid);
-  const snap = await userRef.get();
-  if (!snap.exists) {
+  const doc = await userRef.get();
+  if (!doc.exists) {
     await userRef.set({
       uid: user.uid,
       email: user.email || '',
-      displayName: user.displayName || user.email?.split('@')[0] || 'User',
+      displayName: user.displayName || (user.email?.split('@')[0] || 'User'),
       photoURL: user.photoURL || null,
-      isAnonymous: user.isAnonymous || false,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
 }
 
+// Load all other users
 async function loadChats() {
-  const usersSnap = await db.collection('users').get();
+  const snapshot = await db.collection('users').get();
   allUsers = [];
-  usersSnap.forEach(doc => {
+  snapshot.forEach(doc => {
     const u = doc.data();
     if (u.uid !== currentUser.uid) allUsers.push(u);
   });
   renderChatList();
 }
 
+// Render chat list
 function renderChatList() {
   chatList.innerHTML = '';
+  if (allUsers.length === 0) {
+    chatList.innerHTML = '<div class="chat-item"><div class="chat-info"><div class="chat-name">Нет собеседников</div></div></div>';
+    return;
+  }
   allUsers.forEach(user => {
     const chatId = [currentUser.uid, user.uid].sort().join('_');
     const div = document.createElement('div');
@@ -85,13 +91,14 @@ function renderChatList() {
       <div class="avatar">${initial}</div>
       <div class="chat-info">
         <div class="chat-name">${user.displayName}</div>
-        <div class="chat-last">${user.isAnonymous ? 'Аноним' : user.email}</div>
+        <div class="chat-last">${user.email}</div>
       </div>
     `;
     chatList.appendChild(div);
   });
 }
 
+// Open chat
 function openChat(chatId, user) {
   currentChatId = chatId;
   chatTitle.textContent = user.displayName;
@@ -107,9 +114,18 @@ function openChat(chatId, user) {
       const time = msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const div = document.createElement('div');
       div.className = `msg ${isOut ? 'out' : 'in'}`;
+      let reactionsHtml = '';
+      if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+        reactionsHtml = '<div class="reactions">';
+        for (const [emoji, count] of Object.entries(msg.reactions)) {
+          reactionsHtml += `<span class="reaction" onclick="addReaction('${doc.id}', '${emoji}')">${emoji} ${count}</span>`;
+        }
+        reactionsHtml += '</div>';
+      }
       div.innerHTML = `
         ${msg.text}
         <div class="msg-time">${time}</div>
+        ${reactionsHtml}
       `;
       messagesDiv.appendChild(div);
     });
@@ -117,34 +133,38 @@ function openChat(chatId, user) {
   });
 }
 
+// Send message
 async function sendMessage() {
-  const input = document.getElementById('messageInput');
-  const text = input.value.trim();
+  const text = messageInput.value.trim();
   if (!text || !currentChatId) return;
   await db.collection(`chats/${currentChatId}/messages`).add({
     text,
     uid: currentUser.uid,
+    reactions: {},
     timestamp: firebase.firestore.FieldValue.serverTimestamp()
   });
-  input.value = '';
+  messageInput.value = '';
+}
+
+// Add reaction
+async function addReaction(msgId, emoji) {
+  if (!currentChatId) return;
+  const msgRef = db.collection(`chats/${currentChatId}/messages`).doc(msgId);
+  const doc = await msgRef.get();
+  if (!doc.exists) return;
+  const msg = doc.data();
+  const newReactions = { ...msg.reactions };
+  newReactions[emoji] = (newReactions[emoji] || 0) + 1;
+  await msgRef.update({ reactions: newReactions });
 }
 
 // Auth Methods
-async function signInAnonymously() {
-  try {
-    await auth.signInAnonymously();
-  } catch (e) { alert(e.message); }
-}
-
 async function signInWithGoogle() {
-  const provider = new firebase.auth.GoogleAuthProvider();
   try {
     await auth.signInWithPopup(provider);
-  } catch (e) { alert(e.message); }
-}
-
-async function signInWithPhone() {
-  alert('Вход по номеру — требует настройки reCAPTCHA и верификации. Включите в Firebase Console → Authentication → Phone.');
+  } catch (e) {
+    alert('Ошибка Google: ' + e.message);
+  }
 }
 
 async function handleLogin() {
@@ -153,17 +173,21 @@ async function handleLogin() {
   if (!email || !pass) return alert('Заполните поля');
   try {
     await auth.signInWithEmailAndPassword(email, pass);
-  } catch (e) { alert(e.message); }
+  } catch (e) {
+    alert('Ошибка входа: ' + e.message);
+  }
 }
 
 async function handleRegister() {
   const email = document.getElementById('email').value;
   const pass = document.getElementById('password').value;
-  if (!email || !pass || pass.length < 6) return alert('Пароль минимум 6 символов');
+  if (!email || !pass || pass.length < 6) return alert('Пароль от 6 символов');
   try {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
     await cred.user.updateProfile({ displayName: email.split('@')[0] });
-  } catch (e) { alert(e.message); }
+  } catch (e) {
+    alert('Ошибка регистрации: ' + e.message);
+  }
 }
 
 async function logout() {
@@ -171,7 +195,7 @@ async function logout() {
   await auth.signOut();
 }
 
-// UI
+// UI Controls
 function showChats() {
   sidebar.classList.add('show');
 }
@@ -192,6 +216,7 @@ function closeSettings() {
   settingsPanel.classList.remove('show');
 }
 
+// Emoji Panel
 function initEmojiPanel() {
   const grid = document.getElementById('emojiGrid');
   const emojis = ['😀','😂','😍','🤔','😢','👍','❤️','🔥','🎉','🤩','😎','🤯','😭','🙏','👌','👀','💯','🚀'];
@@ -200,29 +225,39 @@ function initEmojiPanel() {
     span.className = 'emoji';
     span.textContent = emoji;
     span.onclick = () => {
-      document.getElementById('messageInput').value += emoji;
-      document.getElementById('messageInput').focus();
+      messageInput.value += emoji;
+      messageInput.focus();
       toggleEmojiPanel();
     };
     grid.appendChild(span);
   });
 }
 
-// Make functions global
-window.signInAnonymously = signInAnonymously;
-window.signInWithGoogle = signInWithGoogle;
-window.signInWithPhone = signInWithPhone;
+// Reaction Panel (inline)
+const REACTION_EMOJIS = [
+  "😀", "😁", "😂", "🤣", "😃", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "🥰", "😗", "🤔", 
+  "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", 
+  "🤕", "🤢", "🤮", "🤧", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳", "🥸", "🤓", "🧐", "😕", "🫤", 
+  "😮", "😯", "😲", "😳", "🥺", "🥹", "😤", "😡", "😠", "🤬", "😈", "👿", "💀", "☠️", "💩", "🤡", 
+  "👹", "👺", "👻", "👽", "👾", "🤖", "🎃", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", 
+  "🙈", "🙉", "🙊", "💋", "💌", "💘", "💝", "💖", "💗", "💓", "💞", "💕", "💟", "❣️", "💔", "❤️", 
+  "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💯", "💢", "💥", "💫", "💦", "💨", "🕳️", "💣", 
+  "💬", "🗨️"
+];
+
+// Make ALL functions globally accessible for HTML onclick
 window.handleLogin = handleLogin;
 window.handleRegister = handleRegister;
-window.logout = logout;
+window.signInWithGoogle = signInWithGoogle;
 window.sendMessage = sendMessage;
 window.showChats = showChats;
 window.toggleEmojiPanel = toggleEmojiPanel;
 window.openSettings = openSettings;
 window.closeSettings = closeSettings;
+window.logout = logout;
+window.addReaction = addReaction;
 
-// Init
+// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-  initDOM();
   initEmojiPanel();
 });
