@@ -1,5 +1,4 @@
-// 🔥 FLYNET — Готовый скрипт без ошибок
-// Firebase Config
+// 🔥 FLYNET — Исправленный скрипт с анонимным и телефонным входом
 const firebaseConfig = {
   apiKey: "AIzaSyDkyiRV4s1mx-u0vXTFugt1VD_Ki7Sl7Sw",
   authDomain: "chat-29c7e.firebaseapp.com",
@@ -9,19 +8,17 @@ const firebaseConfig = {
   appId: "1:191406446013:web:a964c205dc0d2883ff6ed4"
 };
 
-// Initialize Firebase (Compat)
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-const provider = new firebase.auth.GoogleAuthProvider();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-// State
 let currentUser = null;
 let currentChatId = null;
 let unsubscribeMessages = null;
 let allUsers = [];
 
-// DOM Elements
+// DOM
 const authScreen = document.getElementById('auth');
 const chatScreen = document.getElementById('chat');
 const sidebar = document.getElementById('sidebar');
@@ -32,7 +29,6 @@ const chatList = document.getElementById('chatList');
 const chatTitle = document.getElementById('chatTitle');
 const messageInput = document.getElementById('messageInput');
 
-// Auth Observer
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUser = user;
@@ -48,7 +44,6 @@ auth.onAuthStateChanged(async (user) => {
   }
 });
 
-// Ensure user exists in Firestore
 async function ensureUserInDB(user) {
   const userRef = db.collection('users').doc(user.uid);
   const doc = await userRef.get();
@@ -58,12 +53,12 @@ async function ensureUserInDB(user) {
       email: user.email || '',
       displayName: user.displayName || (user.email?.split('@')[0] || 'User'),
       photoURL: user.photoURL || null,
+      isAnonymous: user.isAnonymous || false,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
 }
 
-// Load all other users
 async function loadChats() {
   const snapshot = await db.collection('users').get();
   allUsers = [];
@@ -74,11 +69,10 @@ async function loadChats() {
   renderChatList();
 }
 
-// Render chat list
 function renderChatList() {
   chatList.innerHTML = '';
   if (allUsers.length === 0) {
-    chatList.innerHTML = '<div class="chat-item"><div class="chat-info"><div class="chat-name">Нет собеседников</div></div></div>';
+    chatList.innerHTML = '<div class="chat-item"><div class="chat-info"><div class="chat-name">Нет чатов</div></div></div>';
     return;
   }
   allUsers.forEach(user => {
@@ -91,14 +85,13 @@ function renderChatList() {
       <div class="avatar">${initial}</div>
       <div class="chat-info">
         <div class="chat-name">${user.displayName}</div>
-        <div class="chat-last">${user.email}</div>
+        <div class="chat-last">${user.isAnonymous ? 'Аноним' : user.email}</div>
       </div>
     `;
     chatList.appendChild(div);
   });
 }
 
-// Open chat
 function openChat(chatId, user) {
   currentChatId = chatId;
   chatTitle.textContent = user.displayName;
@@ -133,7 +126,6 @@ function openChat(chatId, user) {
   });
 }
 
-// Send message
 async function sendMessage() {
   const text = messageInput.value.trim();
   if (!text || !currentChatId) return;
@@ -146,7 +138,6 @@ async function sendMessage() {
   messageInput.value = '';
 }
 
-// Add reaction
 async function addReaction(msgId, emoji) {
   if (!currentChatId) return;
   const msgRef = db.collection(`chats/${currentChatId}/messages`).doc(msgId);
@@ -158,10 +149,22 @@ async function addReaction(msgId, emoji) {
   await msgRef.update({ reactions: newReactions });
 }
 
-// Auth Methods
+// === AUTH METHODS ===
+async function signInAnonymously() {
+  try {
+    await auth.signInAnonymously();
+  } catch (e) {
+    alert('Ошибка анонимного входа: ' + e.message);
+  }
+}
+
+async function signInWithPhone() {
+  alert('⚠️ Вход по номеру требует:\n1. Включить Phone Auth в Firebase Console\n2. Настроить reCAPTCHA\n3. Добавить домен в белый список\n\nПока недоступен в демо.');
+}
+
 async function signInWithGoogle() {
   try {
-    await auth.signInWithPopup(provider);
+    await auth.signInWithPopup(googleProvider);
   } catch (e) {
     alert('Ошибка Google: ' + e.message);
   }
@@ -174,7 +177,7 @@ async function handleLogin() {
   try {
     await auth.signInWithEmailAndPassword(email, pass);
   } catch (e) {
-    alert('Ошибка входа: ' + e.message);
+    alert('Ошибка: ' + e.message);
   }
 }
 
@@ -186,7 +189,7 @@ async function handleRegister() {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
     await cred.user.updateProfile({ displayName: email.split('@')[0] });
   } catch (e) {
-    alert('Ошибка регистрации: ' + e.message);
+    alert('Ошибка: ' + e.message);
   }
 }
 
@@ -195,16 +198,14 @@ async function logout() {
   await auth.signOut();
 }
 
-// UI Controls
+// === UI ===
 function showChats() {
   sidebar.classList.add('show');
 }
 
 function toggleEmojiPanel() {
   emojiPanel.classList.toggle('show');
-  if (emojiPanel.classList.contains('show')) {
-    settingsPanel.classList.remove('show');
-  }
+  settingsPanel.classList.remove('show');
 }
 
 function openSettings() {
@@ -216,10 +217,9 @@ function closeSettings() {
   settingsPanel.classList.remove('show');
 }
 
-// Emoji Panel
 function initEmojiPanel() {
   const grid = document.getElementById('emojiGrid');
-  const emojis = ['😀','😂','😍','🤔','😢','👍','❤️','🔥','🎉','🤩','😎','🤯','😭','🙏','👌','👀','💯','🚀'];
+  const emojis = ['😀','😂','😍','🤔','👍','❤️','🔥','👏','🤯','😢','🙏','👌'];
   emojis.forEach(emoji => {
     const span = document.createElement('span');
     span.className = 'emoji';
@@ -233,31 +233,21 @@ function initEmojiPanel() {
   });
 }
 
-// Reaction Panel (inline)
-const REACTION_EMOJIS = [
-  "😀", "😁", "😂", "🤣", "😃", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "🥰", "😗", "🤔", 
-  "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", 
-  "🤕", "🤢", "🤮", "🤧", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳", "🥸", "🤓", "🧐", "😕", "🫤", 
-  "😮", "😯", "😲", "😳", "🥺", "🥹", "😤", "😡", "😠", "🤬", "😈", "👿", "💀", "☠️", "💩", "🤡", 
-  "👹", "👺", "👻", "👽", "👾", "🤖", "🎃", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", 
-  "🙈", "🙉", "🙊", "💋", "💌", "💘", "💝", "💖", "💗", "💓", "💞", "💕", "💟", "❣️", "💔", "❤️", 
-  "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💯", "💢", "💥", "💫", "💦", "💨", "🕳️", "💣", 
-  "💬", "🗨️"
-];
-
-// Make ALL functions globally accessible for HTML onclick
+// === ГЛОБАЛЬНЫЕ ФУНКЦИИ (обязательно!) ===
+window.signInAnonymously = signInAnonymously;
+window.signInWithPhone = signInWithPhone;
+window.signInWithGoogle = signInWithGoogle;
 window.handleLogin = handleLogin;
 window.handleRegister = handleRegister;
-window.signInWithGoogle = signInWithGoogle;
+window.logout = logout;
 window.sendMessage = sendMessage;
 window.showChats = showChats;
 window.toggleEmojiPanel = toggleEmojiPanel;
 window.openSettings = openSettings;
 window.closeSettings = closeSettings;
-window.logout = logout;
 window.addReaction = addReaction;
 
-// Initialize on DOM ready
+// Init
 document.addEventListener('DOMContentLoaded', () => {
   initEmojiPanel();
 });
