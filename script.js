@@ -1,37 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  updateProfile,
-  deleteUser,
-} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  updateDoc,
-  doc,
-  onSnapshot,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  getDocs,
-  setDoc,
-  arrayUnion,
-} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-storage.js";
-
+// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyDkyiRV4s1mx-u0vXTFugt1VD_Ki7Sl7Sw",
   authDomain: "chat-29c7e.firebaseapp.com",
@@ -41,11 +8,12 @@ const firebaseConfig = {
   appId: "1:191406446013:web:a964c205dc0d2883ff6ed4",
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-const provider = new GoogleAuthProvider();
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+const provider = new firebase.auth.GoogleAuthProvider();
 
 // Global state
 let currentUser = null;
@@ -54,29 +22,33 @@ let unsubscribeMessages = null;
 let allUsers = [];
 let allChats = [];
 
-// DOM elements
-const authScreen = document.getElementById("auth");
-const chatScreen = document.getElementById("chat");
-const sidebar = document.getElementById("sidebar");
-const mainChat = document.getElementById("mainChat");
-const messagesDiv = document.getElementById("messages");
-const emojiPanel = document.getElementById("emojiPanel");
-const settingsPanel = document.getElementById("settingsPanel");
-const botsPanel = document.getElementById("botsPanel");
-const chatList = document.getElementById("chatList");
-const chatTitle = document.getElementById("chatTitle");
-const messageInput = document.getElementById("messageInput");
-const themeSelect = document.getElementById("themeSelect");
-const bgColorPicker = document.getElementById("bgColorPicker");
-const textColorPicker = document.getElementById("textColorPicker");
-const accentColorPicker = document.getElementById("accentColorPicker");
-const botList = document.getElementById("botList");
-const createGroupModal = document.getElementById("createGroupModal");
-const groupNameInput = document.getElementById("groupName");
-const userListForGroup = document.getElementById("userListForGroup");
+// DOM elements (wait for DOM ready)
+let authScreen, chatScreen, sidebar, mainChat, messagesDiv, emojiPanel, settingsPanel, botsPanel, chatList, chatTitle, messageInput, themeSelect, bgColorPicker, textColorPicker, accentColorPicker, botList, createGroupModal, groupNameInput, userListForGroup;
 
-// Initialize
-onAuthStateChanged(auth, async (user) => {
+function initDOM() {
+  authScreen = document.getElementById("auth");
+  chatScreen = document.getElementById("chat");
+  sidebar = document.getElementById("sidebar");
+  mainChat = document.getElementById("mainChat");
+  messagesDiv = document.getElementById("messages");
+  emojiPanel = document.getElementById("emojiPanel");
+  settingsPanel = document.getElementById("settingsPanel");
+  botsPanel = document.getElementById("botsPanel");
+  chatList = document.getElementById("chatList");
+  chatTitle = document.getElementById("chatTitle");
+  messageInput = document.getElementById("messageInput");
+  themeSelect = document.getElementById("themeSelect");
+  bgColorPicker = document.getElementById("bgColorPicker");
+  textColorPicker = document.getElementById("textColorPicker");
+  accentColorPicker = document.getElementById("accentColorPicker");
+  botList = document.getElementById("botList");
+  createGroupModal = document.getElementById("createGroupModal");
+  groupNameInput = document.getElementById("groupName");
+  userListForGroup = document.getElementById("userListForGroup");
+}
+
+// Auth state observer
+auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUser = user;
     await ensureUserInDB(user);
@@ -94,32 +66,26 @@ onAuthStateChanged(auth, async (user) => {
 
 // Ensure user in DB
 async function ensureUserInDB(user) {
-  const userRef = doc(db, "users", user.uid);
-  const snap = await getDocs(
-    query(collection(db, "users"), where("uid", "==", user.uid)),
-  );
-  if (snap.empty) {
-    await setDoc(userRef, {
+  const userRef = db.collection("users").doc(user.uid);
+  const snap = await userRef.get();
+  if (!snap.exists) {
+    await userRef.set({
       uid: user.uid,
       email: user.email || "",
       displayName: user.displayName || user.email?.split("@")[0] || "User",
       photoURL: user.photoURL || null,
-      timestamp: serverTimestamp(),
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
     });
   }
 }
 
 // Load chats
 async function loadChats() {
-  const chatsSnap = await getDocs(query(collection(db, "chats"), where("members", "array-contains", currentUser.uid)));
+  const chatsSnap = await db.collection("chats").where("members", "array-contains", currentUser.uid).get();
   allChats = chatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  allUsers = await getAllUsers();
+  const usersSnap = await db.collection("users").get();
+  allUsers = usersSnap.docs.map(doc => doc.data()).filter(u => u.uid !== currentUser.uid);
   renderChatList();
-}
-
-async function getAllUsers() {
-  const usersSnap = await getDocs(collection(db, "users"));
-  return usersSnap.docs.map(doc => doc.data()).filter(u => u.uid !== currentUser.uid);
 }
 
 function renderChatList() {
@@ -153,9 +119,8 @@ function openChat(chatId, chat) {
   sidebar.classList.remove("show");
   if (unsubscribeMessages) unsubscribeMessages();
 
-  const msgsRef = collection(db, "chats", chatId, "messages");
-  const q = query(msgsRef, orderBy("timestamp"));
-  unsubscribeMessages = onSnapshot(q, (snapshot) => {
+  const msgsRef = db.collection(`chats/${chatId}/messages`).orderBy("timestamp");
+  unsubscribeMessages = msgsRef.onSnapshot((snapshot) => {
     messagesDiv.innerHTML = "";
     snapshot.forEach((doc) => {
       const msg = doc.data();
@@ -175,11 +140,11 @@ function openChat(chatId, chat) {
 async function sendMessage() {
   const text = messageInput.value.trim();
   if (!text || !currentChatId) return;
-  const msgsRef = collection(db, "chats", currentChatId, "messages");
-  await addDoc(msgsRef, {
+  const msgsRef = db.collection(`chats/${currentChatId}/messages`);
+  await msgsRef.add({
     text,
     uid: currentUser.uid,
-    timestamp: serverTimestamp(),
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
   });
   messageInput.value = "";
 }
@@ -187,14 +152,14 @@ async function sendMessage() {
 async function sendMedia(event) {
   const file = event.target.files[0];
   if (!file || !currentChatId) return;
-  const storageRef = ref(storage, `messages/${currentChatId}/${Date.now()}_${file.name}`);
-  await uploadBytes(storageRef, file);
-  const url = await getDownloadURL(storageRef);
-  const msgsRef = collection(db, "chats", currentChatId, "messages");
-  await addDoc(msgsRef, {
+  const storageRef = storage.ref(`messages/${currentChatId}/${Date.now()}_${file.name}`);
+  await storageRef.put(file);
+  const url = await storageRef.getDownloadURL();
+  const msgsRef = db.collection(`chats/${currentChatId}/messages`);
+  await msgsRef.add({
     media: { type: file.type.startsWith('image/') ? 'image' : 'video', url },
     uid: currentUser.uid,
-    timestamp: serverTimestamp(),
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
   });
   event.target.value = "";
 }
@@ -223,19 +188,19 @@ async function createGroup() {
   const selectedUids = Array.from(userListForGroup.querySelectorAll('input:checked')).map(input => input.value);
   const members = [currentUser.uid, ...selectedUids];
   if (members.length < 3) return alert("Выберите хотя бы одного пользователя");
-  const chatRef = await addDoc(collection(db, "chats"), {
+  await db.collection("chats").add({
     type: 'group',
     name,
     members,
-    timestamp: serverTimestamp(),
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
   });
   closeCreateGroupModal();
   loadChats();
 }
 
 async function loadBots() {
-  const botsRef = collection(db, "users", currentUser.uid, "bots");
-  onSnapshot(botsRef, (snapshot) => {
+  const botsRef = db.collection(`users/${currentUser.uid}/bots`);
+  botsRef.onSnapshot((snapshot) => {
     const userBots = [];
     snapshot.forEach((doc) => {
       userBots.push({ id: doc.id, ...doc.data() });
@@ -265,12 +230,12 @@ async function createBot() {
   const description = document.getElementById("botDescription").value.trim();
   if (!name) return alert("Введите имя бота");
   const token = crypto.randomUUID();
-  const botsRef = collection(db, "users", currentUser.uid, "bots");
-  await addDoc(botsRef, {
+  const botsRef = db.collection(`users/${currentUser.uid}/bots`);
+  await botsRef.add({
     name,
     description,
     token,
-    createdAt: serverTimestamp(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
   document.getElementById("botName").value = "";
   document.getElementById("botDescription").value = "";
@@ -279,12 +244,12 @@ async function createBot() {
 
 async function deleteBot(botId) {
   if (confirm("Удалить бота?")) {
-    await deleteDoc(doc(db, "users", currentUser.uid, "bots", botId));
+    await db.collection(`users/${currentUser.uid}/bots`).doc(botId).delete();
   }
 }
 
 function changeTheme(theme) {
-  console.log("Changing theme to:", theme); // Debug
+  console.log("Theme changed to:", theme);
   document.body.className = theme === "light" ? "theme-light" : theme === "blue" ? "theme-blue" : "theme-dark";
   localStorage.setItem("theme", theme);
 }
@@ -306,15 +271,15 @@ function changeAccentColor(color) {
 
 async function logout() {
   if (unsubscribeMessages) unsubscribeMessages();
-  await signOut(auth);
+  await auth.signOut();
 }
 
 async function deleteAccount() {
   if (confirm("Вы уверены?")) {
     try {
-      await deleteUser(auth.currentUser);
+      await currentUser.delete();
       alert("Аккаунт удалён.");
-      await signOut(auth);
+      await auth.signOut();
     } catch (error) {
       alert("Ошибка: " + error.message);
     }
@@ -326,7 +291,7 @@ async function handleLogin() {
   const pass = document.getElementById("password").value;
   if (!email || !pass) return alert("Заполните поля");
   try {
-    await signInWithEmailAndPassword(auth, email, pass);
+    await auth.signInWithEmailAndPassword(email, pass);
   } catch (e) {
     alert(e.message);
   }
@@ -337,17 +302,17 @@ async function handleRegister() {
   const pass = document.getElementById("password").value;
   if (!email || !pass || pass.length < 6) return alert("Неверный пароль");
   try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    await updateProfile(cred.user, { displayName: email.split("@")[0] });
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    await cred.user.updateProfile({ displayName: email.split("@")[0] });
   } catch (e) {
     alert(e.message);
   }
 }
 
 async function signInWithGoogle() {
-  console.log("Attempting Google sign-in"); // Debug
+  console.log("Google sign-in initiated");
   try {
-    await signInWithPopup(auth, provider);
+    await auth.signInWithPopup(provider);
   } catch (e) {
     alert(e.message);
   }
@@ -401,41 +366,13 @@ function showChats() {
   sidebar.classList.add("show");
 }
 
-// Global function assignments
-window.handleLogin = handleLogin;
-window.handleRegister = handleRegister;
-window.signInWithGoogle = signInWithGoogle;
-window.sendMessage = sendMessage;
-window.sendMedia = sendMedia;
-window.showChats = showChats;
-window.toggleEmojiPanel = toggleEmojiPanel;
-window.openSettings = openSettings;
-window.closeSettings = closeSettings;
-window.openBots = openBots;
-window.closeBots = closeBots;
-window.createGroup = createGroup;
-window.openCreateGroupModal = openCreateGroupModal;
-window.closeCreateGroupModal = closeCreateGroupModal;
-window.logout = logout;
-window.deleteAccount = deleteAccount;
-window.changeTheme = changeTheme;
-window.changeBgColor = changeBgColor;
-window.changeTextColor = changeTextColor;
-window.changeAccentColor = changeAccentColor;
-window.createBot = createBot;
-window.deleteBot = deleteBot;
-
-console.log("Script loaded, functions assigned:", {
-  changeTheme: typeof window.changeTheme,
-  signInWithGoogle: typeof window.signInWithGoogle,
-}); // Debug
-
-// Load saved settings
-window.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM fully loaded"); // Debug
+// Инициализация при загрузке DOM
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("DOM loaded, initializing app");
+  initDOM();
   const savedTheme = localStorage.getItem("theme") || "dark";
   changeTheme(savedTheme);
-  themeSelect.value = savedTheme;
+  if (themeSelect) themeSelect.value = savedTheme;
   const savedBgColor = localStorage.getItem("bgColor");
   if (savedBgColor) changeBgColor(savedBgColor);
   const savedTextColor = localStorage.getItem("textColor");
@@ -443,4 +380,5 @@ window.addEventListener("DOMContentLoaded", () => {
   const savedAccentColor = localStorage.getItem("accentColor");
   if (savedAccentColor) changeAccentColor(savedAccentColor);
   initEmojiPanel();
+  console.log("Functions ready:", { changeTheme: typeof changeTheme, signInWithGoogle: typeof signInWithGoogle });
 });
