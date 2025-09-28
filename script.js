@@ -251,3 +251,64 @@ window.addReaction = addReaction;
 document.addEventListener('DOMContentLoaded', () => {
   initEmojiPanel();
 });
+
+// === FLYNET BOT (клиентский, без сервера) ===
+function openBotChat() {
+  currentChatId = 'flynet_bot_chat';
+  document.getElementById('chatTitle').textContent = 'FLYNET Bot';
+  document.getElementById('sidebar').classList.remove('show');
+  
+  const messagesDiv = document.getElementById('messages');
+  messagesDiv.innerHTML = `
+    <div class="msg in">
+      👋 Привет! Я — <strong>FLYNET Bot</strong>.<br><br>
+      Я помогу тебе освоиться в чате.<br><br>
+      💡 Команды:<br>
+      <strong>/start</strong> — приветствие<br>
+      <strong>/help</strong> — список команд<br>
+      <strong>/about</strong> — о создателе<br><br>
+      👨‍💻 Владелец: <a href="https://t.me/ZeroOne_org" target="_blank" style="color:#568af2;">@ZeroOne_org</a>
+    </div>
+  `;
+}
+
+// Перехватываем отправку сообщений в чате с ботом
+const originalSendMessage = window.sendMessage;
+window.sendMessage = function() {
+  if (currentChatId === 'flynet_bot_chat') {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim().toLowerCase();
+    if (text) {
+      // Покажем сообщение пользователя
+      const userMsg = document.createElement('div');
+      userMsg.className = 'msg out';
+      userMsg.innerHTML = `${text}<div class="msg-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>`;
+      document.getElementById('messages').appendChild(userMsg);
+      
+      // Ответим через 300 мс
+      setTimeout(() => {
+        let reply = '';
+        if (text === '/start' || text.includes('привет') || text === 'hello') {
+          reply = '👋 Привет! Я — FLYNET Bot. Напиши /help, чтобы увидеть команды.';
+        } else if (text === '/help') {
+          reply = 'Команды:\n/start — приветствие\n/help — эта помощь\n/about — о создателе';
+        } else if (text === '/about') {
+          reply = 'FLYNET создан разработчиком @ZeroOne_org.\n\nЭто облачный чат в стиле Telegram, полностью на Firebase.\n\nGitHub: github.com/submistik/flynet';
+        } else {
+          reply = 'Неизвестная команда. Напиши /help';
+        }
+        
+        const botMsg = document.createElement('div');
+        botMsg.className = 'msg in';
+        botMsg.innerHTML = reply.replace(/\n/g, '<br>') + 
+          `<div class="msg-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>`;
+        document.getElementById('messages').appendChild(botMsg);
+        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+      }, 300);
+      
+      input.value = '';
+    }
+    return;
+  }
+  originalSendMessage();
+};
