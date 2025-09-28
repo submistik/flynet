@@ -38,13 +38,16 @@
         </div>
       </div>
       <div class="chat-list" id="chatList">
-          <div class="chat-item" onclick="openBotChat()">
-    <div class="avatar">🤖</div>
-    <div class="chat-info">
-      <div class="chat-name">FLYNET Bot</div>
-      <div class="chat-last">Помощник программы</div>
-    </div>
-  </div>
+        <!-- FLYNET Bot -->
+        <div class="chat-item" onclick="openBotChat()">
+          <div class="avatar">
+            <img src="https://i.imgur.com/8Q6zJdL.png" alt="FLYNET Bot" />
+          </div>
+          <div class="chat-info">
+            <div class="chat-name">FLYNET Bot</div>
+            <div class="chat-last">Помощник программы</div>
+          </div>
+        </div>
         <div class="loading">Загрузка...</div>
       </div>
     </div>
@@ -85,7 +88,7 @@
     </div>
   </div>
 
-  <!-- Firebase SDK (Compat - для глобального доступа) -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
