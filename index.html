@@ -1,0 +1,179 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FLYNET</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="theme-dark">
+
+  <!-- Auth -->
+  <div id="auth" class="screen">
+    <div class="auth-container">
+      <h2>🚀 FLYNET</h2>
+      <input type="email" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Пароль" />
+      <button onclick="handleLogin()">Войти</button>
+      <button onclick="handleRegister()">Регистрация</button>
+      <hr />
+      <button class="google-btn" onclick="signInWithGoogle()">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" /> Войти через Google
+      </button>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div id="chat" class="screen hidden">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="header">
+        <div>Чаты</div>
+        <button onclick="openCreateGroupModal()" class="icon-btn">➕</button>
+        <button onclick="openSettings()" class="icon-btn">⚙️</button>
+      </div>
+      <div class="chat-list" id="chatList">
+        <div class="loading">Загрузка...</div>
+      </div>
+    </div>
+
+    <!-- Main Chat -->
+    <div class="main" id="mainChat">
+      <div class="header">
+        <button class="back-btn" onclick="showChats()">‹</button>
+        <div id="chatTitle">Выберите чат</div>
+        <button onclick="toggleEmojiPanel()" class="icon-btn">🙂</button>
+        <button onclick="openBots()" class="icon-bot">🤖</button>
+      </div>
+      <div id="messages"></div>
+      <div class="input-area">
+        <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" onchange="sendMedia(event)" />
+        <button onclick="document.getElementById('mediaInput').click()" class="icon-btn">📎</button>
+        <input type="text" id="messageInput" placeholder="Сообщение" onkeypress="if(event.key==='Enter') sendMessage()" />
+        <button onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+
+    <!-- Emoji Panel -->
+    <div class="emoji-panel" id="emojiPanel">
+      <div class="emoji-category">
+        <div class="emoji-category-title">Смайлы</div>
+        <div class="emoji-grid" id="emojiGrid"></div>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+      <div class="settings-header">
+        <span>Настройки</span>
+        <button onclick="closeSettings()" class="icon-btn">✕</button>
+      </div>
+      <div class="settings-content">
+        <div class="setting-item">
+          <label>Тема:</label>
+          <select id="themeSelect" onchange="changeTheme(this.value)">
+            <option value="dark">Тёмная</option>
+            <option value="light">Светлая</option>
+            <option value="blue">Синяя</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label>Цвет фона:</label>
+          <input type="color" id="bgColorPicker" onchange="changeBgColor(this.value)" />
+        </div>
+        <div class="setting-item">
+          <label>Цвет текста:</label>
+          <input type="color" id="textColorPicker" onchange="changeTextColor(this.value)" />
+        </div>
+        <div class="setting-item">
+          <label>Акцентный цвет:</label>
+          <input type="color" id="accentColorPicker" onchange="changeAccentColor(this.value)" />
+        </div>
+        <div class="setting-item">
+          <button onclick="logout()">Выйти из аккаунта</button>
+        </div>
+        <div class="setting-item">
+          <button onclick="deleteAccount()" style="background:#d93025;">Удалить аккаунт</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bots Panel -->
+    <div class="bots-panel" id="botsPanel">
+      <div class="settings-header">
+        <span>Боты</span>
+        <button onclick="closeBots()" class="icon-btn">✕</button>
+      </div>
+      <div class="settings-content">
+        <div class="setting-item">
+          <label>Имя бота:</label>
+          <input type="text" id="botName" placeholder="Имя бота" />
+        </div>
+        <div class="setting-item">
+          <label>Описание:</label>
+          <textarea id="botDescription" placeholder="Описание бота"></textarea>
+        </div>
+        <div class="setting-item">
+          <button onclick="createBot()">Создать бота</button>
+        </div>
+        <div id="botList"></div>
+      </div>
+    </div>
+
+    <!-- Create Group Modal -->
+    <div id="createGroupModal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Создать группу</h3>
+        <input type="text" id="groupName" placeholder="Название группы" />
+        <div class="user-list" id="userListForGroup"></div>
+        <button onclick="createGroup()">Создать</button>
+        <button onclick="closeCreateGroupModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
