@@ -2,7 +2,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Roboto', system-ui, sans-serif;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 :root {
@@ -13,9 +13,9 @@
   --text-secondary: #b0b0b0;
   --accent: #568af2;
   --msg-in: #2a2a2a;
-  --msg-out: #202c3b;
-  --border: #333;
-  --success: #4caf50;
+  --msg-out: #0088cc;
+  --border: #333333;
+  --shadow: rgba(0,0,0,0.3);
 }
 
 .theme-light {
@@ -26,7 +26,7 @@
   --text-secondary: #666666;
   --msg-in: #e5e5ea;
   --msg-out: #d1e7ff;
-  --border: #ddd;
+  --border: #dddddd;
 }
 
 body {
@@ -34,6 +34,7 @@ body {
   color: var(--text);
   height: 100vh;
   overflow: hidden;
+  touch-action: manipulation;
 }
 
 .screen {
@@ -55,7 +56,7 @@ body {
   padding: 30px;
   background: var(--bg-secondary);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 20px var(--shadow);
 }
 .auth-container h2 {
   text-align: center;
@@ -125,10 +126,12 @@ body {
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   z-index: 10;
+  left: 0; /* ← ЧАТЫ СЛЕВА */
 }
 .main {
-  left: 0;
+  left: 320px; /* ← ОСНОВНОЙ ЧАТ ПРАВЕЕ ПАНЕЛИ */
   right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -137,7 +140,7 @@ body {
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
-    box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+    box-shadow: 2px 0 10px var(--shadow);
   }
   .sidebar.show {
     transform: translateX(0);
@@ -169,10 +172,11 @@ body {
 }
 #chatTitle {
   font-weight: 500;
+  font-size: 16px;
 }
 .status {
   font-size: 12px;
-  color: var(--success);
+  color: #4caf50;
 }
 .header-actions {
   display: flex;
@@ -253,6 +257,7 @@ body {
   position: relative;
   word-break: break-word;
   animation: fadeIn 0.2s ease;
+  box-shadow: 0 1px 2px var(--shadow);
 }
 .msg.in {
   background: var(--msg-in);
@@ -270,6 +275,25 @@ body {
   color: var(--text-secondary);
   text-align: right;
   margin-top: 4px;
+}
+.reactions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  justify-content: flex-end;
+}
+.reaction {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.8em;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+.reaction:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
 }
 
 /* Input */
