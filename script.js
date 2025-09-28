@@ -284,6 +284,7 @@ async function deleteBot(botId) {
 }
 
 function changeTheme(theme) {
+  console.log("Changing theme to:", theme); // Debug
   document.body.className = theme === "light" ? "theme-light" : theme === "blue" ? "theme-blue" : "theme-dark";
   localStorage.setItem("theme", theme);
 }
@@ -344,6 +345,7 @@ async function handleRegister() {
 }
 
 async function signInWithGoogle() {
+  console.log("Attempting Google sign-in"); // Debug
   try {
     await signInWithPopup(auth, provider);
   } catch (e) {
@@ -423,8 +425,14 @@ window.changeAccentColor = changeAccentColor;
 window.createBot = createBot;
 window.deleteBot = deleteBot;
 
+console.log("Script loaded, functions assigned:", {
+  changeTheme: typeof window.changeTheme,
+  signInWithGoogle: typeof window.signInWithGoogle,
+}); // Debug
+
 // Load saved settings
 window.addEventListener("DOMContentLoaded", () => {
+  console.log("DOM fully loaded"); // Debug
   const savedTheme = localStorage.getItem("theme") || "dark";
   changeTheme(savedTheme);
   themeSelect.value = savedTheme;
