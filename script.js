@@ -184,7 +184,20 @@ async function sendMessage() {
   messageInput.value = "";
 }
 
-// ... (остальной код без изменений, добавляем только функции для групп)
+async function sendMedia(event) {
+  const file = event.target.files[0];
+  if (!file || !currentChatId) return;
+  const storageRef = ref(storage, `messages/${currentChatId}/${Date.now()}_${file.name}`);
+  await uploadBytes(storageRef, file);
+  const url = await getDownloadURL(storageRef);
+  const msgsRef = collection(db, "chats", currentChatId, "messages");
+  await addDoc(msgsRef, {
+    media: { type: file.type.startsWith('image/') ? 'image' : 'video', url },
+    uid: currentUser.uid,
+    timestamp: serverTimestamp(),
+  });
+  event.target.value = "";
+}
 
 function openCreateGroupModal() {
   userListForGroup.innerHTML = "";
@@ -220,15 +233,206 @@ async function createGroup() {
   loadChats();
 }
 
-// ... (остальной код для ботов, auth и т.д.)
+async function loadBots() {
+  const botsRef = collection(db, "users", currentUser.uid, "bots");
+  onSnapshot(botsRef, (snapshot) => {
+    const userBots = [];
+    snapshot.forEach((doc) => {
+      userBots.push({ id: doc.id, ...doc.data() });
+    });
+    renderBotList(userBots);
+  });
+}
+
+function renderBotList(bots) {
+  botList.innerHTML = "";
+  bots.forEach((bot) => {
+    const div = document.createElement("div");
+    div.className = "bot-item";
+    div.innerHTML = `
+      <h4>${bot.name}</h4>
+      <p>${bot.description}</p>
+      <p><strong>Токен:</strong> <code>${bot.token}</code></p>
+      <p><strong>Webhook:</strong> https://your-site.com/webhook/${bot.token}</p>
+      <button onclick="deleteBot('${bot.id}')">Удалить</button>
+    `;
+    botList.appendChild(div);
+  });
+}
+
+async function createBot() {
+  const name = document.getElementById("botName").value.trim();
+  const description = document.getElementById("botDescription").value.trim();
+  if (!name) return alert("Введите имя бота");
+  const token = crypto.randomUUID();
+  const botsRef = collection(db, "users", currentUser.uid, "bots");
+  await addDoc(botsRef, {
+    name,
+    description,
+    token,
+    createdAt: serverTimestamp(),
+  });
+  document.getElementById("botName").value = "";
+  document.getElementById("botDescription").value = "";
+  alert("Бот создан! Используйте токен для подключения на вашем сайте.");
+}
+
+async function deleteBot(botId) {
+  if (confirm("Удалить бота?")) {
+    await deleteDoc(doc(db, "users", currentUser.uid, "bots", botId));
+  }
+}
+
+function changeTheme(theme) {
+  document.body.className = theme === "light" ? "theme-light" : theme === "blue" ? "theme-blue" : "theme-dark";
+  localStorage.setItem("theme", theme);
+}
+
+function changeBgColor(color) {
+  document.documentElement.style.setProperty("--bg-color", color);
+  localStorage.setItem("bgColor", color);
+}
+
+function changeTextColor(color) {
+  document.documentElement.style.setProperty("--text-color", color);
+  localStorage.setItem("textColor", color);
+}
+
+function changeAccentColor(color) {
+  document.documentElement.style.setProperty("--accent-text-color", color);
+  localStorage.setItem("accentColor", color);
+}
+
+async function logout() {
+  if (unsubscribeMessages) unsubscribeMessages();
+  await signOut(auth);
+}
+
+async function deleteAccount() {
+  if (confirm("Вы уверены?")) {
+    try {
+      await deleteUser(auth.currentUser);
+      alert("Аккаунт удалён.");
+      await signOut(auth);
+    } catch (error) {
+      alert("Ошибка: " + error.message);
+    }
+  }
+}
+
+async function handleLogin() {
+  const email = document.getElementById("email").value;
+  const pass = document.getElementById("password").value;
+  if (!email || !pass) return alert("Заполните поля");
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function handleRegister() {
+  const email = document.getElementById("email").value;
+  const pass = document.getElementById("password").value;
+  if (!email || !pass || pass.length < 6) return alert("Неверный пароль");
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(cred.user, { displayName: email.split("@")[0] });
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function signInWithGoogle() {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+function initEmojiPanel() {
+  const grid = document.getElementById("emojiGrid");
+  const emojis = ["😀", "😂", "😍", "🤔", "😢", "👍", "❤️", "🔥"];
+  emojis.forEach((emoji) => {
+    const span = document.createElement("span");
+    span.className = "emoji";
+    span.textContent = emoji;
+    span.onclick = () => {
+      messageInput.value += emoji;
+      messageInput.focus();
+      toggleEmojiPanel();
+    };
+    grid.appendChild(span);
+  });
+}
+
+function toggleEmojiPanel() {
+  emojiPanel.classList.toggle("show");
+  if (emojiPanel.classList.contains("show")) {
+    settingsPanel.classList.remove("show");
+    botsPanel.classList.remove("show");
+  }
+}
+
+function openSettings() {
+  settingsPanel.classList.add("show");
+  emojiPanel.classList.remove("show");
+  botsPanel.classList.remove("show");
+}
+
+function closeSettings() {
+  settingsPanel.classList.remove("show");
+}
+
+function openBots() {
+  botsPanel.classList.add("show");
+  emojiPanel.classList.remove("show");
+  settingsPanel.classList.remove("show");
+}
+
+function closeBots() {
+  botsPanel.classList.remove("show");
+}
+
+function showChats() {
+  sidebar.classList.add("show");
+}
+
+// Global function assignments
+window.handleLogin = handleLogin;
+window.handleRegister = handleRegister;
+window.signInWithGoogle = signInWithGoogle;
+window.sendMessage = sendMessage;
+window.sendMedia = sendMedia;
+window.showChats = showChats;
+window.toggleEmojiPanel = toggleEmojiPanel;
+window.openSettings = openSettings;
+window.closeSettings = closeSettings;
+window.openBots = openBots;
+window.closeBots = closeBots;
+window.createGroup = createGroup;
 window.openCreateGroupModal = openCreateGroupModal;
 window.closeCreateGroupModal = closeCreateGroupModal;
-window.createGroup = createGroup;
+window.logout = logout;
+window.deleteAccount = deleteAccount;
+window.changeTheme = changeTheme;
+window.changeBgColor = changeBgColor;
+window.changeTextColor = changeTextColor;
+window.changeAccentColor = changeAccentColor;
+window.createBot = createBot;
+window.deleteBot = deleteBot;
 
 // Load saved settings
 window.addEventListener("DOMContentLoaded", () => {
   const savedTheme = localStorage.getItem("theme") || "dark";
   changeTheme(savedTheme);
   themeSelect.value = savedTheme;
-  // ... 
+  const savedBgColor = localStorage.getItem("bgColor");
+  if (savedBgColor) changeBgColor(savedBgColor);
+  const savedTextColor = localStorage.getItem("textColor");
+  if (savedTextColor) changeTextColor(savedTextColor);
+  const savedAccentColor = localStorage.getItem("accentColor");
+  if (savedAccentColor) changeAccentColor(savedAccentColor);
+  initEmojiPanel();
 });
