@@ -7,33 +7,34 @@
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body class="theme-dark">
 
-  <!-- Auth -->
+  <!-- Auth Screen -->
   <div id="auth" class="screen">
     <div class="auth-container">
-      <h2>🚀 FLYNET</h2>
+      <h2>FLYNET</h2>
+      <button onclick="signInAnonymously()" class="auth-btn">Войти анонимно</button>
+      <button onclick="signInWithGoogle()" class="auth-btn google">Войти через Google</button>
+      <button onclick="signInWithPhone()" class="auth-btn phone">Войти по номеру</button>
+      <div class="divider">или</div>
       <input type="email" id="email" placeholder="Email" />
       <input type="password" id="password" placeholder="Пароль" />
-      <button onclick="handleLogin()">Войти</button>
-      <button onclick="handleRegister()">Регистрация</button>
-      <hr />
-      <button class="google-btn" onclick="signInWithGoogle()">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" /> Войти через Google
-      </button>
+      <button onclick="handleLogin()" class="auth-btn">Войти</button>
+      <button onclick="handleRegister()" class="auth-btn outline">Регистрация</button>
     </div>
   </div>
 
-  <!-- Chat -->
+  <!-- Chat Screen -->
   <div id="chat" class="screen hidden">
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
       <div class="header">
-        <div>Чаты</div>
-        <button onclick="openCreateGroupModal()" class="icon-btn">➕</button>
-        <button onclick="openSettings()" class="icon-btn">⚙️</button>
+        <div class="title">Чаты</div>
+        <div class="header-actions">
+          <button onclick="openSettings()" class="icon-btn">⚙️</button>
+        </div>
       </div>
       <div class="chat-list" id="chatList">
         <div class="loading">Загрузка...</div>
@@ -44,104 +45,44 @@
     <div class="main" id="mainChat">
       <div class="header">
         <button class="back-btn" onclick="showChats()">‹</button>
-        <div id="chatTitle">Выберите чат</div>
-        <button onclick="toggleEmojiPanel()" class="icon-btn">🙂</button>
-        <button onclick="openBots()" class="icon-bot">🤖</button>
+        <div class="chat-info">
+          <div id="chatTitle">Выберите чат</div>
+          <div id="chatStatus" class="status">в сети</div>
+        </div>
+        <div class="header-actions">
+          <button onclick="toggleEmojiPanel()" class="icon-btn">🙂</button>
+        </div>
       </div>
-      <div id="messages"></div>
+      <div id="messages" class="messages"></div>
       <div class="input-area">
-        <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" onchange="sendMedia(event)" />
-        <button onclick="document.getElementById('mediaInput').click()" class="icon-btn">📎</button>
         <input type="text" id="messageInput" placeholder="Сообщение" onkeypress="if(event.key==='Enter') sendMessage()" />
-        <button onclick="sendMessage()">➤</button>
+        <button onclick="sendMessage()" class="send-btn">➤</button>
       </div>
     </div>
 
     <!-- Emoji Panel -->
     <div class="emoji-panel" id="emojiPanel">
-      <div class="emoji-category">
-        <div class="emoji-category-title">Смайлы</div>
-        <div class="emoji-grid" id="emojiGrid"></div>
-      </div>
+      <div class="emoji-grid" id="emojiGrid"></div>
     </div>
 
-    <!-- Settings Panel -->
+    <!-- Settings -->
     <div class="settings-panel" id="settingsPanel">
       <div class="settings-header">
         <span>Настройки</span>
         <button onclick="closeSettings()" class="icon-btn">✕</button>
       </div>
       <div class="settings-content">
-        <div class="setting-item">
-          <label>Тема:</label>
-          <select id="themeSelect" onchange="changeTheme(this.value)">
-            <option value="dark">Тёмная</option>
-            <option value="light">Светлая</option>
-            <option value="blue">Синяя</option>
-          </select>
-        </div>
-        <div class="setting-item">
-          <label>Цвет фона:</label>
-          <input type="color" id="bgColorPicker" onchange="changeBgColor(this.value)" />
-        </div>
-        <div class="setting-item">
-          <label>Цвет текста:</label>
-          <input type="color" id="textColorPicker" onchange="changeTextColor(this.value)" />
-        </div>
-        <div class="setting-item">
-          <label>Акцентный цвет:</label>
-          <input type="color" id="accentColorPicker" onchange="changeAccentColor(this.value)" />
-        </div>
-        <div class="setting-item">
-          <button onclick="logout()">Выйти из аккаунта</button>
-        </div>
-        <div class="setting-item">
-          <button onclick="deleteAccount()" style="background:#d93025;">Удалить аккаунт</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bots Panel -->
-    <div class="bots-panel" id="botsPanel">
-      <div class="settings-header">
-        <span>Боты</span>
-        <button onclick="closeBots()" class="icon-btn">✕</button>
-      </div>
-      <div class="settings-content">
-        <div class="setting-item">
-          <label>Имя бота:</label>
-          <input type="text" id="botName" placeholder="Имя бота" />
-        </div>
-        <div class="setting-item">
-          <label>Описание:</label>
-          <textarea id="botDescription" placeholder="Описание бота"></textarea>
-        </div>
-        <div class="setting-item">
-          <button onclick="createBot()">Создать бота</button>
-        </div>
-        <div id="botList"></div>
-      </div>
-    </div>
-
-    <!-- Create Group Modal -->
-    <div id="createGroupModal" class="modal hidden">
-      <div class="modal-content">
-        <h3>Создать группу</h3>
-        <input type="text" id="groupName" placeholder="Название группы" />
-        <div class="user-list" id="userListForGroup"></div>
-        <button onclick="createGroup()">Создать</button>
-        <button onclick="closeCreateGroupModal()">Отмена</button>
+        <button onclick="logout()" class="btn-danger">Выйти</button>
       </div>
     </div>
   </div>
 
-  <!-- Firebase SDKs (CDN) -->
-<script type="text/javascript" src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
-<script type="text/javascript" src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
-<script type="text/javascript" src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
-<script type="text/javascript" src="https://www.gstatic.com/firebasejs/10.13.1/firebase-storage-compat.js"></script>
+  <!-- Firebase SDK (Compat - для глобального доступа) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-storage-compat.js"></script>
 
-<!-- Ваш скрипт (обычный, не модуль) -->
-<script type="text/javascript" src="script.js"></script>
+  <script src="script.js" defer></script>
 </body>
 </html>
